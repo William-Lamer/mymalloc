@@ -85,7 +85,6 @@ static void *extend_heap(size_t bytes) {
 
     // Move the epilogue header
     PUT(HEADER(NEXT_BLOCK(ptr)), PACK(0, 1));
-
     return ptr;
 
     // coalesce if the previous block was free
@@ -121,9 +120,6 @@ void print_heap() {
 }
 
 static void *find_first_fit(size_t block_size_requested) {
-
-    printf("block size requested in find_first_fit: %zu\n\n",block_size_requested);
-
     // Get the pointer to the payload of the first real block
     void *ptr = NEXT_BLOCK(heap_start);
 
@@ -164,15 +160,11 @@ static void carve(void *ptr, size_t block_size_requested){
 
 
 void *my_malloc(size_t size) {
-    if (!heap_start && heap_init() < 0)
-        return NULL;
+    if (!heap_start && heap_init() < 0) return NULL;
+
+    if (size == 0) return NULL;
 
     size_t block_size;
-    size_t extendsize;
-
-    if (size == 0)
-        return NULL;
-
     // Align the requested size.
     if (size <= DSIZE) {
         block_size = 2 * DSIZE;
@@ -187,10 +179,13 @@ void *my_malloc(size_t size) {
 
 
     //If no fit is found, request more space from the OS
-    
+    size_t extendsize;
+    extendsize = MAX(block_size, EXTEND_HEAP_AMOUNT);
+    void *new_block = extend_heap(extendsize);
+    if (!new_block) return NULL;
 
-     
-    return block;
+    carve(new_block, block_size);
+    return new_block;
 }
 
 void my_free(void *ptr) {
@@ -206,35 +201,13 @@ static void *coalesce(void *ptr) { return 0; }
 int main() {
     // Basic allocation testing
     int *arr = my_malloc(10 * sizeof(int));
-    for (int i = 0; i < 10; i++) arr[i] = i;
-    for (int i = 0; i < 10; i++) printf("%d ", arr[i]);
-    printf("\n\n");
-
-    // check that the header is correct
-    printf("Block size in header: %zu\n", GET_SIZE(HEADER(arr)));
-    printf("Alloc bit in header:  %zu\n", GET_ALLOC(HEADER(arr)));
-
-    // Check that the footer matches the header
-    printf("Footer matches header: %s\n",
-           GET(HEADER(arr)) == GET(FOOTER(arr)) ? "YES" : "NO");
-
-    // testing another allocation
     int *arr2 = my_malloc(100 * sizeof(int));
-
-    for (int i=0; i<10; i++) arr[i] = i;
-
-
-
-
     int *arr3 = my_malloc(50* sizeof(int));
-
-    my_free(arr);
-
-
-
+    int *arr4 = my_malloc(10000);
+    int *arr5 = my_malloc(2000);
 
     my_free(arr3);
-
+    my_free(arr5);
     print_heap();
     return 0;
 }
