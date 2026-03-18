@@ -8,7 +8,7 @@
 #define EXTEND_HEAP_AMOUNT  (1 << 12) // 4096 bytes
 #define MINIMUM_BLOCK_SIZE  (DSIZE)
 
-#define MAX(x, y) ((x) > (y)) ? (x) : (y)
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
 // Pack the size and the allocated bit together into one word
 #define PACK(size, alloc) ((size) | (alloc))
@@ -37,7 +37,7 @@ void my_free(void *ptr);
 static void *coalesce(void *ptr);
 int heap_init();
 static void *extend_heap(size_t words);
-static void *fint_first_fit(size_t block_size_requested);
+static void *find_first_fit(size_t block_size_requested);
 static void carve(void *ptr, size_t block_size_requested);
 
 static void *heap_start = NULL;
@@ -85,10 +85,9 @@ static void *extend_heap(size_t bytes) {
 
     // Move the epilogue header
     PUT(HEADER(NEXT_BLOCK(ptr)), PACK(0, 1));
-    return ptr;
 
     // coalesce if the previous block was free
-    // return coalesce(ptr);
+    return coalesce(ptr);
 }
 
 // Request bytes from the OS, returns pointer or NULL on fail.
@@ -189,6 +188,8 @@ void *my_malloc(size_t size) {
 }
 
 void my_free(void *ptr) {
+    if (ptr == NULL) return;
+
     size_t size = GET_SIZE(HEADER(ptr));
 
     PUT(HEADER(ptr), PACK(size, 0));
@@ -196,7 +197,51 @@ void my_free(void *ptr) {
     coalesce(ptr);
 }
 
-static void *coalesce(void *ptr) { return 0; }
+static void *coalesce(void *ptr) { 
+
+    size_t previous_block_allocated = GET_ALLOC(FOOTER(PREV_BLOCK(ptr)));
+    size_t next_block_allocated = GET_ALLOC(HEADER(NEXT_BLOCK(ptr)));
+
+    size_t size_middle_block = GET_SIZE(HEADER(ptr));
+    size_t size_previous_block = GET_SIZE(FOOTER(PREV_BLOCK(ptr)));
+    size_t size_next_block = GET_SIZE(HEADER(NEXT_BLOCK(ptr)));
+    size_t new_size;
+
+    //If both are not free
+    if (previous_block_allocated && next_block_allocated) return ptr;
+
+    //If only the previous block is free
+    if (!previous_block_allocated && next_block_allocated){
+        new_size = size_middle_block + size_previous_block;
+
+        PUT(HEADER(PREV_BLOCK(ptr)), PACK(new_size, 0));
+        PUT(FOOTER(ptr), PACK(new_size, 0));
+
+        return PREV_BLOCK(ptr);
+    }
+
+
+    //if only the next block is free
+    if (previous_block_allocated && !next_block_allocated){
+        new_size = size_middle_block + size_next_block;
+
+        PUT(HEADER(ptr), PACK(new_size, 0));
+        PUT(FOOTER((ptr)), PACK(new_size, 0));
+
+        return ptr;
+    }
+
+    //if both blocks are free
+    if (!previous_block_allocated && !next_block_allocated){
+        new_size = size_middle_block + size_previous_block + size_next_block;
+
+        PUT(HEADER(PREV_BLOCK(ptr)), PACK(new_size, 0));
+        PUT(FOOTER(NEXT_BLOCK(ptr)), PACK(new_size, 0));
+
+        return PREV_BLOCK(ptr);
+    }
+    return NULL;
+}
 
 int main() {
     // Basic allocation testing
@@ -204,10 +249,7 @@ int main() {
     int *arr2 = my_malloc(100 * sizeof(int));
     int *arr3 = my_malloc(50* sizeof(int));
     int *arr4 = my_malloc(10000);
-    int *arr5 = my_malloc(2000);
 
-    my_free(arr3);
-    my_free(arr5);
     print_heap();
     return 0;
 }

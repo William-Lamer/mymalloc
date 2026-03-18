@@ -4,9 +4,10 @@
 build/
 *.out
 
-mymalloc
+malloc
 test_basic
 bench
+mymalloc
 
 
 *.swp
