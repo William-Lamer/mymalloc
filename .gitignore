@@ -1,0 +1,16 @@
+*.o
+*.so
+*.a
+build/
+*.out
+
+mymalloc
+test_basic
+bench
+
+
+*.swp
+*~
+
+
+*:Zone.Identifier
