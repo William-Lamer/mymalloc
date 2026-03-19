@@ -1,13 +1,40 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -g -O2 -I src/
 
-mymalloc: src/malloc.c
-	$(CC) $(CFLAGS) -o mymalloc src/malloc.c
 
-valgrind: mymalloc
-	valgrind --leak-check=full --error-exitcode=1 ./mymalloc
+STRATEGY ?=
+
+SRC = src/malloc.c
+OBJ = $(SRC:.c=.o)
+
+
+
+
+lib: $(SRC)
+	$(CC) $(CFLAGS) $(STRATEGY) -fPIC -shared -o mymalloc.so $(SRC)
+
+
+static: $(SRC)
+	$(CC) $(CFLAGS) $(STRATEGY) -c -o src/malloc.o $(SRC)
+	ar rcs libmymalloc.a src/malloc.o
+
+
+test: static
+	$(CC) $(CFLAGS) -o tests/test_basic tests/test_basic.c -L. -lmymalloc
+	./tests/test_basic
+
+
+bench: static
+	$(CC) $(CFLAGS) -o benchmarks/bench benchmarks/bench.c -L. -lmymalloc
+	./benchmarks/bench
+
+
+valgrind: static
+	$(CC) $(CFLAGS) -o tests/test_basic tests/test_basic.c -L. -lmymalloc
+	valgrind --leak-check=full --error-exitcode=1 ./tests/test_basic
+
 
 clean:
-	rm -f mymalloc
+	rm -f src/*.o *.so *.a tests/test_basic benchmarks/bench
 
-.PHONY: valgrind clean
+.PHONY: lib static test bench valgrind clean

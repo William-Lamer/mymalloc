@@ -32,7 +32,7 @@
 // Function declarations
 void *request_from_os(size_t size);
 void print_heap();
-static void *my_malloc(size_t size);
+void *my_malloc(size_t size);
 void my_free(void *ptr);
 static void *coalesce(void *ptr);
 int heap_init();
@@ -243,13 +243,3 @@ static void *coalesce(void *ptr) {
     return NULL;
 }
 
-int main() {
-    // Basic allocation testing
-    int *arr = my_malloc(10 * sizeof(int));
-    int *arr2 = my_malloc(100 * sizeof(int));
-    int *arr3 = my_malloc(50* sizeof(int));
-    int *arr4 = my_malloc(10000);
-
-    print_heap();
-    return 0;
-}
