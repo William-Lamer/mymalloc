@@ -1,6 +1,12 @@
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <unistd.h>
+#include <stdint.h>
+#include <assert.h>
+
+//Block sizes are the total block sizes (including header and footer)
+
 
 #define WSIZE sizeof(size_t) // 8 bytes on 64bit
 #define DSIZE (2 * WSIZE)    // 16 bytes on 64bit
@@ -31,18 +37,25 @@
 
 // Function declarations
 void *request_from_os(size_t size);
-void print_heap();
+void print_heap(void);
 void *my_malloc(size_t size);
 void my_free(void *ptr);
 static void *coalesce(void *ptr);
-int heap_init();
-static void *extend_heap(size_t words);
+int heap_init(void);
+static void *extend_heap(size_t bytes);
 static void *find_first_fit(size_t block_size_requested);
 static void carve(void *ptr, size_t block_size_requested);
+static int check_block(void *ptr);  //validates one block
+void *my_calloc(size_t num, size_t size);
+int heap_check(void); //validates the entire heap
+static int heap_error(const char *msg, void *ptr);
+
+
+
 
 static void *heap_start = NULL;
 
-int heap_init() {
+int heap_init(void) {
 
     // Create the initial empty heap
     char *p = request_from_os(4 * WSIZE);
@@ -57,7 +70,7 @@ int heap_init() {
     heap_start = p + (2 * WSIZE);
 
     // Extend the empty heap with a free block of size CHUNKSIZE
-    extend_heap(EXTEND_HEAP_AMOUNT);
+    if (extend_heap(EXTEND_HEAP_AMOUNT) == NULL) return -1;
 
     return 0;
 }
@@ -98,7 +111,7 @@ void *request_from_os(size_t size) {
     return block;
 }
 
-void print_heap() {
+void print_heap(void) {
     if (!heap_start) {
         printf("Heap is not initialized\n");
         return;
@@ -126,7 +139,6 @@ static void *find_first_fit(size_t block_size_requested) {
         //Check if the block is free and big enough
         if (!GET_ALLOC(HEADER(ptr)) && (GET_SIZE(HEADER(ptr)) >= block_size_requested)){
             carve(ptr, block_size_requested);
-            if (!ptr) return NULL;
             return ptr;
             
         }
@@ -242,4 +254,106 @@ static void *coalesce(void *ptr) {
     }
     return NULL;
 }
+
+
+
+void *my_calloc(size_t num, size_t size) {
+    //Need to add check to make sure size_t doesnt overflow
+    size_t total = num * size;
+    void *ptr = my_malloc(total);
+
+    if (!ptr) return NULL;
+
+    memset(ptr, 0, total);
+    return ptr;
+}
+
+
+
+static int heap_error(const char *msg, void *ptr) {
+    fprintf(stderr, "HEAP CHECK FAILED: %s (block=%p)", msg, ptr);
+    return 0;
+}
+
+
+
+static int check_block(void *ptr) {
+    size_t header = GET(HEADER(ptr));
+    size_t footer = GET(FOOTER(ptr));
+    size_t size = GET_SIZE(HEADER(ptr));
+
+
+    //Alignment
+    if ((uintptr_t)ptr % DSIZE != 0) {
+        return heap_error("paylod pointer is not 16 byte aligned", ptr);
+    }
+    //Valid size, if too small and if not a multiple of.
+    if (size < 2 * WSIZE){
+        return heap_error("block size is too small", ptr);
+    }
+
+    if (size % DSIZE != 0) {
+        return heap_error("block size is not a multiple of DSIZE", ptr);
+    }
+
+    //Header and footer matches
+    if (header != footer) {
+        return heap_error("header and footer do not match", ptr);
+    }
+
+    return 1;
+}
+
+
+
+
+
+int heap_check(void) {
+    if (!heap_start) {
+        return heap_error("heap not initialized", NULL);
+    }
+
+    char *base = (char *)heap_start - 2 * WSIZE; //start of padding before prologue header
+    
+    
+
+    //check header
+    base += WSIZE;
+    assert(GET_SIZE(base) == DSIZE);
+    assert(GET_ALLOC(base) == 1);
+    
+    //move and check header
+    base += WSIZE;
+    assert(GET_SIZE(base) == DSIZE);
+    assert(GET_ALLOC(base) == 1);
+
+    //loop through all blocks and check
+    char *ptr = NEXT_BLOCK(heap_start);
+    while (GET_SIZE(HEADER(ptr)) > 0) {
+
+
+
+
+
+
+    }
+
+
+
+
+    return 1;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
