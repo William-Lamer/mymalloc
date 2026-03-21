@@ -12,7 +12,7 @@
 #define DSIZE (2 * WSIZE)    // 16 bytes on 64bit
 
 #define EXTEND_HEAP_AMOUNT  (1 << 12) // 4096 bytes
-#define MINIMUM_BLOCK_SIZE  (DSIZE)
+#define MINIMUM_BLOCK_SIZE  (2 * DSIZE) //Header, footer + minimum payload size
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 
@@ -258,8 +258,8 @@ static void *coalesce(void *ptr) {
 
 
 void *my_calloc(size_t num, size_t size) {
-    //Need to add check to make sure size_t doesnt overflow
     size_t total = num * size;
+    if (num != 0 && total / num != size) return NULL; //checking if it overflowed
     void *ptr = my_malloc(total);
 
     if (!ptr) return NULL;
@@ -315,35 +315,50 @@ int heap_check(void) {
 
     char *base = (char *)heap_start - 2 * WSIZE; //start of padding before prologue header
     
+    //check prologue padding + header + footer
+    if (GET(base) != 0) {
+        return heap_error("alignment padding not okay",base);
+    }
     
-
-    //check header
-    base += WSIZE;
-    assert(GET_SIZE(base) == DSIZE);
-    assert(GET_ALLOC(base) == 1);
+    if (GET(base+ WSIZE) != PACK(DSIZE, 1)) {
+        return heap_error("bad prologue header", base + WSIZE);
+    }
+    if (GET(base + 2 * WSIZE) != PACK(DSIZE, 1)) {
+        return heap_error("bad prologue footer", base + 2 * WSIZE);
+    }
     
-    //move and check header
-    base += WSIZE;
-    assert(GET_SIZE(base) == DSIZE);
-    assert(GET_ALLOC(base) == 1);
+    void *ptr = NEXT_BLOCK(heap_start);
+    int prev_free = 0;
 
-    //loop through all blocks and check
-    char *ptr = NEXT_BLOCK(heap_start);
-    while (GET_SIZE(HEADER(ptr)) > 0) {
+    while(GET_SIZE(HEADER(ptr)) > 0) {
 
+        if (!check_block(ptr)) {
+            return 0;
+        }
 
+        int alloc = GET_ALLOC(HEADER(ptr));
 
+        //Check that there is no consecutive free blocks
+        if (!alloc && prev_free) {
+            return heap_error("found consecutive free blocks", ptr);
+        }
+        
+        prev_free = !alloc;
 
+        if (NEXT_BLOCK(ptr) <= (char *)ptr) {
+            return heap_error("heap traversal could not move foward", ptr);
+        }
 
-
+        ptr = NEXT_BLOCK(ptr);
     }
 
-
-
+    //Check the epilogue header
+    if (GET(HEADER(ptr)) != PACK(0,1)) {
+        return heap_error("bad epilogue header", ptr);
+    }
 
     return 1;
 }
-
 
 
 
