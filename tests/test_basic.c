@@ -155,12 +155,6 @@ void giga_test(){
     srand(42); //keep the same, dont modify
 
     for (int i=0; i < GIGA_TEST_ITERS; i++) {
-        //testing 
-        
-
-
-
-
         int slot = rand() % POOL_SIZE;
 
         if (pool[slot] == NULL) {
@@ -209,6 +203,80 @@ void giga_test(){
 
 
 
+void test_realloc_null(void) {
+    printf("Running test_realloc_null...\n");
+    char *ptr = my_realloc(NULL, 100);
+    assert (ptr != NULL);
+    memset(ptr, 0xAB, 100);
+    my_free(ptr);
+    assert(heap_check() == 1);
+    printf("test_realloc_null passed!\n");
+}
+void test_realloc_zero(void) {
+    printf("Running test_realloc_zero...\n");
+    char *ptr = my_malloc(100);
+    assert(ptr != NULL);
+    ptr = my_realloc(ptr, 0);
+    assert(ptr == NULL);
+    assert(heap_check() == 1);
+    printf("test_realloc_zero passed!\n");
+}
+void test_realloc_growing(void) {
+    printf("Running test_realloc_growing...\n");
+    char *ptr1 = my_malloc(100);
+    assert(ptr1 != NULL);
+
+    for (int i = 0; i < 100; i++) {
+        ptr1[i] = (char)i;
+    }
+
+    char *ptr2 = my_realloc(ptr1, 300);
+    assert(ptr2 != NULL);
+
+    for (int i = 0; i < 100; i++) {
+        assert(ptr2[i] == (char)i);
+    }
+    my_free(ptr2);
+    assert(heap_check() == 1);
+    printf("test_realloc_growing passed!\n");
+}
+
+void test_realloc_in_place() {
+    printf("Running test_realloc_in_place...\n");
+    char *a = my_malloc(100);
+    char *b = my_malloc(100);
+    assert(a && b);
+
+
+    for (int i = 0; i < 100; i++) {
+        a[i] = 'X';
+    }
+
+    my_free(b);
+    assert(heap_check() == 1);
+
+    char *new_a = my_realloc(a, 150);
+    assert(new_a == a);
+
+    for (int i = 0; i < 100; i++) {
+        assert(new_a[i] == 'X');
+    }
+    my_free(new_a);
+    assert(heap_check() == 1);
+    printf("test_realloc_in_place passed!\n");
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 int main() {
     printf("\nStarting custom basic tests...\n");
@@ -222,6 +290,10 @@ int main() {
     test_coalesce();
     test_edge_cases();
     giga_test();
+    test_realloc_null();
+    test_realloc_zero();
+    test_realloc_growing();
+    test_realloc_in_place();
 
 
     printf("\n-------------------");

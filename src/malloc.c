@@ -53,6 +53,7 @@ static void *find_first_fit(size_t block_size_requested);
 static void carve(void *ptr, size_t block_size_requested);
 static int check_block(void *ptr);  //validates one block
 void *my_calloc(size_t num, size_t size);
+void *my_realloc(void *ptr, size_t size);
 int heap_check(void); //validates the entire heap
 static int heap_error(const char *msg, void *ptr);
 static void insert_free_block(void *ptr);
@@ -287,6 +288,72 @@ void *my_calloc(size_t num, size_t size) {
     return ptr;
 }
 
+void *my_realloc(void *ptr, size_t size) {
+    if (ptr == NULL) { //just behaves like normal malloc
+        return my_malloc(size);
+    }
+
+    if (size == 0) { //is supposed to free it
+        my_free(ptr);
+        return NULL;
+    }
+
+    size_t old_block_size = GET_SIZE(HEADER(ptr));
+    size_t new_block_size;
+    if (size <= DSIZE) {
+        new_block_size = 2 * DSIZE;
+    } else {
+        new_block_size = DSIZE * ((size + DSIZE + (DSIZE -1)) / DSIZE);
+    }
+
+
+    //Case 1: Current block is already large enough
+    if (old_block_size >= new_block_size) {
+        return ptr;
+    }
+
+    //Case 2: If the next block is free and we can grow into it 
+    void *next = NEXT_BLOCK(ptr);
+    if (!GET_ALLOC(HEADER(next))) {
+        size_t next_size = GET_SIZE(HEADER(next));
+        size_t combined_size = old_block_size + next_size;
+
+        if (combined_size >= new_block_size) {
+            remove_free_block(next);
+
+            size_t rest = combined_size - new_block_size;
+
+            if (rest >= MINIMUM_BLOCK_SIZE) {
+                //Expand the allocated block
+                PUT(HEADER(ptr), PACK(new_block_size, 1));
+                PUT(FOOTER(ptr), PACK(new_block_size, 1));
+
+                //create the new free block that remains
+                void *split = NEXT_BLOCK(ptr);
+                PUT(HEADER(split), PACK(rest, 0));
+                PUT(FOOTER(split), PACK(rest, 0));
+                insert_free_block(split);
+            } else {
+                //use the entire space
+                PUT(HEADER(ptr), PACK(combined_size, 1));
+                PUT(FOOTER(ptr), PACK(combined_size, 1));
+            }
+            return ptr;
+        }
+    }
+    //Case 3: Need to move it elsewhere
+    void *new_ptr = my_malloc(size);
+    if (!new_ptr) return NULL;
+
+    size_t old_paylod_size = GET_SIZE(HEADER(ptr)) - DSIZE;
+    //We take the minimum of old_paylod_size and size
+    size_t copy_size = (size < old_paylod_size) ? size : old_paylod_size;
+    memcpy(new_ptr, ptr, copy_size);
+
+    my_free(ptr);
+    return new_ptr;
+}
+
 
 
 static int heap_error(const char *msg, void *ptr) {
@@ -368,8 +435,7 @@ int heap_check(void) {
             return heap_error("heap traversal could not move foward", ptr);
         }
 
-        check_free_list();
-
+        if (!check_free_list()) return 0;
 
         ptr = NEXT_BLOCK(ptr);
     }

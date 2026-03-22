@@ -21,7 +21,7 @@
 #endif
 
 #define NUM_RUNS        5
-#define POOL_SIZE       256
+#define POOL_SIZE       512
 #define ITERATIONS      100000
 #define MAX_SIZE        4096
 #define MIN_SIZE        16

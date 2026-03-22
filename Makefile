@@ -25,11 +25,11 @@ test: static
 
 
 bench-mine: static
-	$(CC) $(CFLAGS) -O2 -o benchmarks/bench_mine benchmarks/bench.c -L. -lmymalloc
+	$(CC) -I src/ -O3 -o benchmarks/bench_mine benchmarks/bench.c -L. -lmymalloc
 	./benchmarks/bench_mine
 
 bench-system:
-	$(CC) $(CFLAGS) -O2 -DUSE_SYSTEM_MALLOC -o benchmarks/bench_system benchmarks/bench.c
+	$(CC) -I src/ -O3 -DUSE_SYSTEM_MALLOC -o benchmarks/bench_system benchmarks/bench.c
 	./benchmarks/bench_system
 
 bench: bench-mine bench-system
