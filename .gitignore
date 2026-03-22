@@ -9,9 +9,13 @@ test_basic
 bench
 mymalloc
 
+bench_mine
+bench_system
 
 *.swp
 *~
 
 
 *:Zone.Identifier
+
+.DS_Store

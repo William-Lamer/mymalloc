@@ -13,8 +13,6 @@
 
 
 void test_data_integrity(){
-    printf("\nRunning data integrity test...\n");
-
     int *arr1 = my_malloc(100 * sizeof(int));
     assert(heap_check() == 1);
     int *arr2= my_malloc(200 * sizeof(int));
@@ -43,14 +41,10 @@ void test_data_integrity(){
     assert(heap_check() == 1);
     my_free(arr3);
     assert(heap_check() == 1);
-
-    printf("Data Integrity Test Passed!\n");
 }
 
 
 void test_reuse(){
-    printf("Running reuse test...\n");
-
     void *a = my_malloc(128);
     assert(heap_check() == 1);
     void *b = my_malloc(128);
@@ -72,16 +66,11 @@ void test_reuse(){
     assert(heap_check() == 1);
     my_free(c);
     assert(heap_check() == 1);
-
-    printf("Reuse test passed!\n");
-
 }
 
 
 
 void test_coalesce(){
-    printf("Running coalesce test...\n");
-
     void *p1 = my_malloc(100);
     assert(heap_check() == 1);
     void *p2 = my_malloc(100);
@@ -103,16 +92,11 @@ void test_coalesce(){
 
     my_free(p4);
     assert(heap_check() == 1);
-
-
-    printf("Coalescing test passed!\n");
 }
 
 
 
 void test_edge_cases(){
-    printf("Running edge cases test...\n");
-
     //Allocating 0 bytes
     void *zero_ptr = my_malloc(0);
     assert(heap_check() == 1);
@@ -137,8 +121,6 @@ void test_edge_cases(){
 
     my_free(huge_ptr);
     assert(heap_check() == 1);
-
-    printf("Edge cases test passed!");
 }
 
 
@@ -148,8 +130,6 @@ void test_edge_cases(){
 // keeps a pool of pointers, randomly malloc and free over x times. 
 // write a known pattern in each block, verify the pattern then heap_check then free. 
 void giga_test(){
-    printf("\nRunning GIGA test at %d iterations...\n", GIGA_TEST_ITERS);
-
     void *pool[POOL_SIZE] = {0};
     size_t sizes[POOL_SIZE] = {0}; // the size of each allocation
 
@@ -199,31 +179,25 @@ void giga_test(){
         }
     }
     assert(heap_check() == 1);
-    printf("Giga test passed!\n");
 }
 
 
 
 void test_realloc_null(void) {
-    printf("Running test_realloc_null...\n");
     char *ptr = my_realloc(NULL, 100);
     assert (ptr != NULL);
     memset(ptr, 0xAB, 100);
     my_free(ptr);
     assert(heap_check() == 1);
-    printf("test_realloc_null passed!\n");
 }
 void test_realloc_zero(void) {
-    printf("Running test_realloc_zero...\n");
     char *ptr = my_malloc(100);
     assert(ptr != NULL);
     ptr = my_realloc(ptr, 0);
     assert(ptr == NULL);
     assert(heap_check() == 1);
-    printf("test_realloc_zero passed!\n");
 }
 void test_realloc_growing(void) {
-    printf("Running test_realloc_growing...\n");
     char *ptr1 = my_malloc(100);
     assert(ptr1 != NULL);
 
@@ -239,11 +213,9 @@ void test_realloc_growing(void) {
     }
     my_free(ptr2);
     assert(heap_check() == 1);
-    printf("test_realloc_growing passed!\n");
 }
 
 void test_realloc_in_place() {
-    printf("Running test_realloc_in_place...\n");
     char *a = my_malloc(100);
     char *b = my_malloc(100);
     assert(a && b);
@@ -264,13 +236,11 @@ void test_realloc_in_place() {
     }
     my_free(new_a);
     assert(heap_check() == 1);
-    printf("test_realloc_in_place passed!\n");
 }
 
 
 
 void test_calloc_basic(void) {
-    printf("Running test_calloc_basic...\n");
     size_t n = 32;
     unsigned char *p = my_calloc(n, sizeof(unsigned char));
     assert(p != NULL);
@@ -280,19 +250,16 @@ void test_calloc_basic(void) {
     }
     my_free(p);
     assert(heap_check() == 1);
-    printf("test_calloc_basic passed!\n");
 }
 
 
 void test_calloc_overflow(void) {
-    printf("Running test_calloc_overflow...\n");
     size_t n = (SIZE_MAX / 16) + 1;
     size_t x = 16;
 
     void *ptr = my_calloc(n, x);
     assert(ptr == NULL);
     assert(heap_check() == 1);
-    printf("test_calloc_overflow passed!\n");
 }
 
 
@@ -321,9 +288,9 @@ int main() {
     test_calloc_basic();
     test_calloc_overflow();
 
-    printf("\n-------------------");
+    printf("-------------------");
     printf("\n-ALL TEST PASSED!!-");
-    printf("\n-------------------");
+    printf("\n-------------------\n");
 }
 
 

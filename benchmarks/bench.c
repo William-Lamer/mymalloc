@@ -21,7 +21,7 @@
 
 #define NUM_RUNS        5
 #define POOL_SIZE       512
-#define ITERATIONS      100000
+#define ITERATIONS      1000000
 #define MAX_SIZE        4096
 #define MIN_SIZE        16
 
@@ -114,7 +114,7 @@ int main() {
     printf("------Final Results------\n");
     printf(" Average : %.4fs | %.0f ops/sec\n", avg, throughput);
     printf(" Best    : %.4fs | %.0f ops/sec\n", best, ITERATIONS / best);
-    printf(" worst    : %.4fs | %0.f ops/sec\n", worst, ITERATIONS / worst);
+    printf(" worst   : %.4fs | %0.f ops/sec\n", worst, ITERATIONS / worst);
     printf("\n");
 
     return 0;
