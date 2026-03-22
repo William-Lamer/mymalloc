@@ -11,7 +11,7 @@ OBJ = $(SRC:.c=.o)
 
 
 lib: $(SRC)
-	$(CC) $(CFLAGS) $(STRATEGY) -fPIC -shared -o mymalloc.so $(SRC)
+	$(CC) $(CFLAGS) $(STRATEGY) -fPIC -shared -o mymalloc.so $(SRC) src/shim.c
 
 
 static: $(SRC)

@@ -278,11 +278,17 @@ static void *coalesce(void *ptr) {
 
 
 void *my_calloc(size_t num, size_t size) {
-    size_t total = num * size;
-    if (num != 0 && total / num != size) return NULL; //checking if it overflowed
-    void *ptr = my_malloc(total);
+    if (num == 0 || size == 0) {
+        return my_malloc(0);
+    }
+    // check if it overflows
+    if (size > SIZE_MAX / num) {
+        return NULL;
+    }
 
-    if (!ptr) return NULL;
+    size_t total = num * size;
+    void *ptr = my_malloc(total);
+    if (ptr == NULL) return NULL;
 
     memset(ptr, 0, total);
     return ptr;

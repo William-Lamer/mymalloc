@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
@@ -6,7 +7,7 @@
 
 
 
-#define GIGA_TEST_ITERS 10000
+#define GIGA_TEST_ITERS 100000
 #define POOL_SIZE 64
 #define MAX_ALLOC_SIZE 512
 
@@ -268,8 +269,31 @@ void test_realloc_in_place() {
 
 
 
+void test_calloc_basic(void) {
+    printf("Running test_calloc_basic...\n");
+    size_t n = 32;
+    unsigned char *p = my_calloc(n, sizeof(unsigned char));
+    assert(p != NULL);
+
+    for (size_t i = 0; i< n; i++) {
+        assert(p[i] == 0);
+    }
+    my_free(p);
+    assert(heap_check() == 1);
+    printf("test_calloc_basic passed!\n");
+}
 
 
+void test_calloc_overflow(void) {
+    printf("Running test_calloc_overflow...\n");
+    size_t n = (SIZE_MAX / 16) + 1;
+    size_t x = 16;
+
+    void *ptr = my_calloc(n, x);
+    assert(ptr == NULL);
+    assert(heap_check() == 1);
+    printf("test_calloc_overflow passed!\n");
+}
 
 
 
@@ -294,7 +318,8 @@ int main() {
     test_realloc_zero();
     test_realloc_growing();
     test_realloc_in_place();
-
+    test_calloc_basic();
+    test_calloc_overflow();
 
     printf("\n-------------------");
     printf("\n-ALL TEST PASSED!!-");
