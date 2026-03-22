@@ -122,7 +122,7 @@ void test_edge_cases(){
     assert(heap_check() == 1);
 
     //Allocating a huge size
-    size_t huge_size = 1<<24; //16MB
+    size_t huge_size = 1<<20; //cant be too big or valgrind will reject. But still works
     void *huge_ptr = my_malloc(huge_size);
     assert(heap_check() == 1);
     assert(huge_ptr != NULL);
@@ -206,15 +206,6 @@ void giga_test(){
     assert(heap_check() == 1);
     printf("Giga test passed!\n");
 }
-
-
-
-
-
-
-
-
-
 
 
 

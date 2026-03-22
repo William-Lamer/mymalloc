@@ -35,6 +35,12 @@
 #define NEXT_BLOCK(ptr) ((char *)(ptr) + GET_SIZE((char *)(ptr) - WSIZE))
 #define PREV_BLOCK(ptr) ((char *)(ptr) - GET_SIZE((char *)(ptr) - DSIZE))
 
+
+#define NEXT_FREE(ptr) (*(void **)(ptr))
+#define PREV_FREE(ptr) (*(void **)((char *)(ptr) + WSIZE))
+
+
+
 // Function declarations
 void *request_from_os(size_t size);
 void print_heap(void);
@@ -49,11 +55,15 @@ static int check_block(void *ptr);  //validates one block
 void *my_calloc(size_t num, size_t size);
 int heap_check(void); //validates the entire heap
 static int heap_error(const char *msg, void *ptr);
+static void insert_free_block(void *ptr);
+static void remove_free_block(void *ptr);
+static int check_free_list(void);
 
 
 
 
 static void *heap_start = NULL;
+static void *free_list_head = NULL;
 
 int heap_init(void) {
 
@@ -132,17 +142,14 @@ void print_heap(void) {
 }
 
 static void *find_first_fit(size_t block_size_requested) {
-    // Get the pointer to the payload of the first real block
-    void *ptr = NEXT_BLOCK(heap_start);
+    void *ptr = free_list_head;
+    // Find the first free block
 
-    while (GET_SIZE(HEADER(ptr)) > 0){
-        //Check if the block is free and big enough
-        if (!GET_ALLOC(HEADER(ptr)) && (GET_SIZE(HEADER(ptr)) >= block_size_requested)){
-            carve(ptr, block_size_requested);
+    while (ptr != NULL) {
+        if (GET_SIZE(HEADER(ptr)) >= block_size_requested) {
             return ptr;
-            
         }
-        ptr = NEXT_BLOCK(ptr);
+        ptr = NEXT_FREE(ptr);
     }
     return NULL;
 }
@@ -150,9 +157,11 @@ static void *find_first_fit(size_t block_size_requested) {
 static void carve(void *ptr, size_t block_size_requested){
     
     size_t size_block_found = GET_SIZE(HEADER(ptr));
+
+    remove_free_block(ptr);
     
     //Return if the block is not big enough to carve with space leftover
-    if (size_block_found <= block_size_requested + MINIMUM_BLOCK_SIZE){
+    if (size_block_found < block_size_requested + MINIMUM_BLOCK_SIZE){
         //block is too small to divide
         PUT(HEADER(ptr), PACK(size_block_found, 1));
         PUT(FOOTER(ptr), PACK(size_block_found, 1));
@@ -165,14 +174,17 @@ static void carve(void *ptr, size_t block_size_requested){
 
     //Update the values for the new empty block created
     void *new_ptr = NEXT_BLOCK(ptr);
-    PUT(HEADER(new_ptr), PACK(size_block_found - block_size_requested, 0));
-    PUT(FOOTER(new_ptr), PACK(size_block_found - block_size_requested, 0)); 
+    size_t rest = size_block_found - block_size_requested;
+
+    PUT(HEADER(new_ptr), PACK(rest, 0));
+    PUT(FOOTER(new_ptr), PACK(rest, 0)); 
+
+    insert_free_block(new_ptr);
 }
 
 
 void *my_malloc(size_t size) {
     if (!heap_start && heap_init() < 0) return NULL;
-
     if (size == 0) return NULL;
 
     size_t block_size;
@@ -183,20 +195,15 @@ void *my_malloc(size_t size) {
         block_size = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
     }
 
+    void *block = find_first_fit(block_size);
+    if (block == NULL) {
+        size_t extendsize = MAX(block_size, EXTEND_HEAP_AMOUNT);
+        block = extend_heap(extendsize);
+        if (block == NULL) return NULL;
+    }
 
-    // Find the first free block
-    char *block = find_first_fit(block_size);
-    if (block) return block;
-
-
-    //If no fit is found, request more space from the OS
-    size_t extendsize;
-    extendsize = MAX(block_size, EXTEND_HEAP_AMOUNT);
-    void *new_block = extend_heap(extendsize);
-    if (!new_block) return NULL;
-
-    carve(new_block, block_size);
-    return new_block;
+    carve(block, block_size);
+    return block;
 }
 
 void my_free(void *ptr) {
@@ -220,36 +227,48 @@ static void *coalesce(void *ptr) {
     size_t new_size;
 
     //If both are not free
-    if (previous_block_allocated && next_block_allocated) return ptr;
+    if (previous_block_allocated && next_block_allocated) {
+        insert_free_block(ptr);
+        return ptr;
+    }
 
     //If only the previous block is free
     if (!previous_block_allocated && next_block_allocated){
+        remove_free_block(PREV_BLOCK(ptr));
+
         new_size = size_middle_block + size_previous_block;
 
         PUT(HEADER(PREV_BLOCK(ptr)), PACK(new_size, 0));
         PUT(FOOTER(ptr), PACK(new_size, 0));
 
+        insert_free_block(PREV_BLOCK(ptr));
         return PREV_BLOCK(ptr);
     }
 
 
     //if only the next block is free
     if (previous_block_allocated && !next_block_allocated){
+        remove_free_block(NEXT_BLOCK(ptr));
         new_size = size_middle_block + size_next_block;
 
         PUT(HEADER(ptr), PACK(new_size, 0));
         PUT(FOOTER((ptr)), PACK(new_size, 0));
 
+        insert_free_block(ptr);
         return ptr;
     }
 
     //if both blocks are free
     if (!previous_block_allocated && !next_block_allocated){
+        remove_free_block(PREV_BLOCK(ptr));
+        remove_free_block(NEXT_BLOCK(ptr));
+
         new_size = size_middle_block + size_previous_block + size_next_block;
 
         PUT(HEADER(PREV_BLOCK(ptr)), PACK(new_size, 0));
         PUT(FOOTER(NEXT_BLOCK(ptr)), PACK(new_size, 0));
 
+        insert_free_block(PREV_BLOCK(ptr));
         return PREV_BLOCK(ptr);
     }
     return NULL;
@@ -349,6 +368,9 @@ int heap_check(void) {
             return heap_error("heap traversal could not move foward", ptr);
         }
 
+        check_free_list();
+
+
         ptr = NEXT_BLOCK(ptr);
     }
 
@@ -359,6 +381,59 @@ int heap_check(void) {
 
     return 1;
 }
+
+
+
+
+
+static void insert_free_block(void *ptr) {
+    NEXT_FREE(ptr) = free_list_head;
+    PREV_FREE(ptr) = NULL;
+
+    if (free_list_head) {
+        PREV_FREE(free_list_head) = ptr;
+    }
+    free_list_head = ptr;
+}
+
+
+static void remove_free_block(void *ptr) {
+    void *prev = PREV_FREE(ptr);
+    void *next = NEXT_FREE(ptr);
+
+    if (prev) {
+        NEXT_FREE(prev) = next;
+    } else {
+        free_list_head = next;
+    }
+    if (next) {
+        PREV_FREE(next) = prev;
+    }
+}
+
+
+
+
+static int check_free_list(void) {
+    void *ptr = free_list_head;
+    void *prev = NULL;
+
+    while (ptr != NULL) {
+        if (GET_ALLOC(HEADER(ptr))) {
+            return heap_error("allocated block found in free list", ptr);
+        }
+
+        if (PREV_FREE(ptr) != prev) {
+            return heap_error("free list previous pointer invalid", ptr);
+        }
+
+        prev = ptr;
+        ptr = NEXT_FREE(ptr);
+    }
+    return 1;
+}
+
+
 
 
 
