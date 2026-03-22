@@ -4,14 +4,14 @@ A general-purpose dynamic memory allocator written from scratch in C, implementi
 
 ## Features
 - **Explicit Free list:** Freed blocks are tracked in a doubly linked list, making allocations O(k) where k in the number of free blocks instead of O(n) over all blocks.
-- **Immediate boundary-tag coalescing:** All four adjency cases handled on every free call to eliminate heap fragmentation
+- **Immediate boundary-tag coalescing:** All four adjacency cases handled on every free call to eliminate heap fragmentation
 - **Block splitting:** Oversized free blocks are split to minimize internal fragmentation
 - **Full interface:** `malloc`, `free`, `realloc` (with in-place growth), and `calloc` (with overflow protection)
 - **LD_PRELOAD compatible:** Compiles as a shared library, usable with any dynamically linked program
 - **Heap consistency checker:** `heap_check()` validates heap integrity on every operating during testing
 - **Full test suite:** Custom built tests for every possible case. With a 100,000 random allocation/free operations stress test with heap integrity operation between every call
 - **Valgrind:** Passes Valgrind with no errors on the entire test suite
-- **Benchmarking:** Includes a custom built benchmark program to compare throughput agaisnt glibc's `malloc` and `free`
+- **Benchmarking:** Includes a custom built benchmark program to compare throughput against glibc's `malloc` and `free`
  
 
 
@@ -65,7 +65,7 @@ The entire heap looks like this:
 
 ```
 +------------------+-----------------+-----------------------+------------------+
-|  Prologue Header | Prologue Footer | Individual blocks ... |  Epilogue Footer |
+|  Prologue Header | Prologue Footer | Individual blocks ... |  Epilogue Header |
 +------------------+-----------------+-----------------------+------------------+
 ```
 
@@ -87,7 +87,7 @@ Coalescing requires knowing wheter the previous block is free or not. The footer
 
 **Why a first-fit placement policy?**
 
-First-fit is used here instead of best-fit for a increased throughput at the cost on higher fragmentation. In the future I plan to implement segregated free list, which mimics the advatanges of best-fit while improving performance. 
+First-fit is used here instead of best-fit for a increased throughput at the cost on higher fragmentation. In the future I plan to implement segregated free list, which mimics the advantages of best-fit while improving performance. 
 
 
 
@@ -179,7 +179,10 @@ make valgrind
 **Example result from the default benchmark configuration:**
 <img width="955" height="781" alt="Screenshot 2026-03-22 153729" src="https://github.com/user-attachments/assets/f26aafe8-b593-4dc0-9b1f-d16db8a47d56" />
 
-**Important Note:** mymalloc outperforms glibc on this specific benchmark because the workload is single-threaded with a fixed access pattern that favors an explicit free list. glibc's allocator is absolutetly expected to significantly outperform my own implementation in throughput and consistency under any real working conditions. Future plans are to extend the benchmark suite to better evaluate real performance. 
+mymalloc achieved 158.77% of glibc throughput on this benchmark.
+
+
+**Important Note:** mymalloc outperforms glibc on this specific benchmark because the workload is single-threaded with a fixed access pattern that favors an explicit free list. glibc's allocator is absolutely expected to significantly outperform my own implementation in throughput and consistency under any real working conditions. Future plans are to extend the benchmark suite to better evaluate real performance. 
 
 
 
@@ -235,12 +238,12 @@ We can run python scripts, and even do JSON processing!
 
 
 ## What I learned
-This project taught me a whole lot about many more thins than I expected. My biggest takeaway is definitly the value of and the importance of rigourous testing, benchmarking, and debugging. It also genuinly increased my appreciation of low-level systems programming. Even with the countless hours of debugging, I still had a lot of fun!
+This project taught me a whole lot about many more things than I expected. My biggest takeaway is definitely the value of and the importance of rigourous testing, benchmarking, and debugging. It also genuinly increased my appreciation of low-level systems programming. Even with the countless hours of debugging, I still had a lot of fun!
 
 
 
 ## Most annoying bug!
-I'm making it a section because I spent 4 hours reading textbooks, documentation, blogs and asking AI (who had no idea) to finally figure out that the thing that was breaking my entire program were the `printf()` statements I placed to help debug!
+I'm making it a section because I spent 4 hours reading textbooks, documentation, blogs and asking AI (who had no idea btw) to finally figure out that the thing that was breaking my entire program were the `printf()` statements I placed to help debug!
 That's right, print statements can break memory allocators! 
 
 Reason (if other people are having this issue): 
