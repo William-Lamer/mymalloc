@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <stdint.h>
 #include <assert.h>
+#include <pthread.h>
 
 //Block sizes are the total block sizes (including header and footer)
 
@@ -65,6 +66,9 @@ static int check_free_list(void);
 
 static void *heap_start = NULL;
 static void *free_list_head = NULL;
+
+static pthread_mutex_t heap_lock = PTHREAD_MUTEX_INITIALIZER;
+
 
 int heap_init(void) {
 
@@ -128,7 +132,7 @@ void print_heap(void) {
         return;
     }
 
-    char *ptr = NEXT_BLOCK(heap_start);
+    char *ptr = NEXT_BLOCK(heap_start); //this skips the prologue
     int block_num = 0;
     printf("\n--- HEAP STATE ---\n");
     while (GET_SIZE(HEADER(ptr)) > 0) {
@@ -188,6 +192,8 @@ void *my_malloc(size_t size) {
     if (!heap_start && heap_init() < 0) return NULL;
     if (size == 0) return NULL;
 
+    pthread_mutex_lock(&heap_lock);
+
     size_t block_size;
     // Align the requested size.
     if (size <= DSIZE) {
@@ -200,21 +206,29 @@ void *my_malloc(size_t size) {
     if (block == NULL) {
         size_t extendsize = MAX(block_size, EXTEND_HEAP_AMOUNT);
         block = extend_heap(extendsize);
-        if (block == NULL) return NULL;
+        if (block == NULL) {
+            pthread_mutex_unlock(&heap_lock);
+            return NULL;
+        }
     }
 
     carve(block, block_size);
+    pthread_mutex_unlock(&heap_lock);
     return block;
 }
 
 void my_free(void *ptr) {
     if (ptr == NULL) return;
 
+    pthread_mutex_lock(&heap_lock);
+
     size_t size = GET_SIZE(HEADER(ptr));
 
     PUT(HEADER(ptr), PACK(size, 0));
     PUT(FOOTER(ptr), PACK(size, 0));
     coalesce(ptr);
+
+    pthread_mutex_unlock(&heap_lock);
 }
 
 static void *coalesce(void *ptr) { 
@@ -279,7 +293,7 @@ static void *coalesce(void *ptr) {
 
 void *my_calloc(size_t num, size_t size) {
     if (num == 0 || size == 0) {
-        return my_malloc(0);
+        return my_malloc(0); //intended behavior
     }
     // check if it overflows
     if (size > SIZE_MAX / num) {
@@ -304,6 +318,8 @@ void *my_realloc(void *ptr, size_t size) {
         return NULL;
     }
 
+    pthread_mutex_lock(&heap_lock);
+
     size_t old_block_size = GET_SIZE(HEADER(ptr));
     size_t new_block_size;
     if (size <= DSIZE) {
@@ -315,6 +331,7 @@ void *my_realloc(void *ptr, size_t size) {
 
     //Case 1: Current block is already large enough
     if (old_block_size >= new_block_size) {
+        pthread_mutex_unlock(&heap_lock);
         return ptr;
     }
 
@@ -344,18 +361,24 @@ void *my_realloc(void *ptr, size_t size) {
                 PUT(HEADER(ptr), PACK(combined_size, 1));
                 PUT(FOOTER(ptr), PACK(combined_size, 1));
             }
+            pthread_mutex_unlock(&heap_lock);
             return ptr;
         }
     }
+
     //Case 3: Need to move it elsewhere
+    size_t copy_size = old_block_size - DSIZE; 
+    //We take the minimum
+    if (size < copy_size) {
+        copy_size = size;
+    }
+
+    pthread_mutex_unlock(&heap_lock);
+
     void *new_ptr = my_malloc(size);
     if (!new_ptr) return NULL;
 
-    size_t old_paylod_size = GET_SIZE(HEADER(ptr)) - DSIZE;
-    //We take the minimum of old_paylod_size and size
-    size_t copy_size = (size < old_paylod_size) ? size : old_paylod_size;
     memcpy(new_ptr, ptr, copy_size);
-
     my_free(ptr);
     return new_ptr;
 }
@@ -380,7 +403,7 @@ static int check_block(void *ptr) {
         return heap_error("paylod pointer is not 16 byte aligned", ptr);
     }
     //Valid size, if too small and if not a multiple of.
-    if (size < 2 * WSIZE){
+    if (size < MINIMUM_BLOCK_SIZE){
         return heap_error("block size is too small", ptr);
     }
 
@@ -441,7 +464,6 @@ int heap_check(void) {
             return heap_error("heap traversal could not move foward", ptr);
         }
 
-        if (!check_free_list()) return 0;
 
         ptr = NEXT_BLOCK(ptr);
     }
@@ -450,6 +472,8 @@ int heap_check(void) {
     if (GET(HEADER(ptr)) != PACK(0,1)) {
         return heap_error("bad epilogue header", ptr);
     }
+
+    if (!check_free_list()) return 0;
 
     return 1;
 }
