@@ -72,7 +72,7 @@ The entire heap looks like this:
 ## Design Decisions
 **Why an explicit free list over implicit?**
 
-An implicit free list requires traversing every block (both allocated and free) to find a suitable block. On the other hand, an explicit list only visits free blocks. Under many allocation/free operations this is a significant improvement (roughly 5x faster from a specific benchmark result). This is worth it, even if it comes at the cost of 16 extra bytes per free block for the `NEXT` and `FREE` pointers. 
+An implicit free list requires traversing every block (both allocated and free) to find a suitable block. On the other hand, an explicit list only visits free blocks. Under many allocation/free operations this is a significant improvement (roughly 5x faster from a specific benchmark result). This is worth it, even if it comes at the cost of 16 extra bytes per free block for the `NEXT` and `PREV` pointers. 
 
 
 **Why a footer boundary tag?**
